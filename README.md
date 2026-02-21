@@ -27,7 +27,7 @@ Each lesson has task, check task.pdf file (written in Polish) to see details.
 
 All (per lesson) source files were written/tested using:
 > Operating System: CachyOS Linux (Wayland session) <br>
-> Kernel Version: 6.16.8-2-cachyos (64-bit) <br>
+> Kernel Version: 6.19.3-2-cachyos (64-bit) <br>
 > Processor: 16 × AMD Ryzen 7 PRO 5850U with Radeon Graphics <br>
 > Memory: 24 GiB of RAM
 >
