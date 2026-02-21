@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamiczny Quiz SPA</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="card" id="quiz-container">
+            <h1>Dynamiczny Quiz</h1>
+            <div id="timer">Pozostały czas: 02:00</div>
+            <div id="questions-list">
+                Ładowanie pytań...
+            </div>
+            <button id="submit-btn" class="btn btn-mt">Wyślij Quiz</button>
+        </div>
+
+        <div class="card" id="results">
+            <h1>Wyniki Quizu</h1>
+            <h2 id="score-display" class="score-display"></h2>
+            <p id="time-taken-display" class="time-taken-display"></p>
+            <div id="breakdown"></div>
+            <button onclick="location.reload()" class="btn btn-mt">Spróbuj ponownie</button>
+        </div>
+    </div>
+    <script type="module" src="script.js"></script>
+</body>
+</html>
