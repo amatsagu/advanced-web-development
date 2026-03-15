@@ -23,8 +23,6 @@ npm run dev
 ![Przykładowy wynik z quizu](./.github/2.png) 
 
 Check repository branches to see specific lessons.
-Each lesson has task, check task.pdf file (written in Polish) to see details.
-
 All (per lesson) source files were written/tested using:
 > Operating System: CachyOS Linux (Wayland session) <br>
 > Kernel Version: 6.19.3-2-cachyos (64-bit) <br>
