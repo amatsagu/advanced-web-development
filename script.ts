@@ -1,163 +1,233 @@
-interface Question {
-    id: number;
+// Declaration for global io object from socket.io
+declare const io: any;
+
+interface ChatMessage {
+    id: string;
+    username: string;
     text: string;
-    options: string[];
+    timestamp: string;
 }
 
-interface BreakdownItem {
-    id: number;
-    text: string;
-    userAnswer: string;
-    correctAnswer: string;
-    isCorrect: boolean;
-}
+document.addEventListener('DOMContentLoaded', () => {
+    // DOM Elements references
+    const loginContainer = document.getElementById('login-container') as HTMLDivElement;
+    const chatContainer = document.getElementById('chat-container') as HTMLDivElement;
+    const usernameInput = document.getElementById('username') as HTMLInputElement;
+    const loginBtn = document.getElementById('login-btn') as HTMLButtonElement;
+    const loginError = document.getElementById('login-error') as HTMLDivElement;
+    
+    const messagesList = document.getElementById('messages-list') as HTMLDivElement;
+    const chatForm = document.getElementById('chat-form') as HTMLFormElement;
+    const messageInput = document.getElementById('message-input') as HTMLInputElement;
+    const endpointDisplay = document.getElementById('endpoint-display') as HTMLDivElement;
+    const currentUserDisplay = document.getElementById('current-user-display') as HTMLSpanElement;
+    const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
 
-interface SubmitResponse {
-    score: number;
-    total: number;
-    breakdown: BreakdownItem[];
-}
+    let socket: any = null;
+    let currentUsername = '';
+    let authToken = localStorage.getItem('chat_token');
 
-const quizContainer = document.getElementById('quiz-container')!;
-const questionsList = document.getElementById('questions-list')!;
-const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
-const timerDisplay = document.getElementById('timer')!;
-const resultsContainer = document.getElementById('results')!;
-const scoreDisplay = document.getElementById('score-display')!;
-const timeTakenDisplay = document.getElementById('time-taken-display')!;
-const breakdownDiv = document.getElementById('breakdown')!;
+    // Helper function: update endpoint display
+    const updateEndpointDisplay = (method: string, url: string) => {
+        endpointDisplay.textContent = `Ostatnie żądanie: ${method} ${url}`;
+    };
 
-const INITIAL_TIME = 120;
-let questions: Question[] = [];
-let userAnswers: Record<number, string> = {};
-let timeLeft = INITIAL_TIME;
-let timerInterval: any;
-
-async function initQuiz() {
-    try {
-        const response = await fetch('/api/questions');
-        questions = await response.json();
-        renderQuestions();
-        startTimer();
-    } catch (error) {
-        questionsList.innerHTML = 'Błąd podczas ładowania pytań. Spróbuj ponownie później.';
-        console.error('Error fetching questions:', error);
-    }
-}
-
-function renderQuestions() {
-    questionsList.innerHTML = '';
-    questions.forEach((q, index) => {
-        const qDiv = document.createElement('div');
-        qDiv.classList.add('question');
-        qDiv.id = `q-${q.id}`;
-        
-        const qText = document.createElement('div');
-        qText.classList.add('question-text');
-        qText.textContent = `${index + 1}. ${q.text}`;
-        
-        const optionsDiv = document.createElement('div');
-        optionsDiv.classList.add('options');
-        
-        q.options.forEach(option => {
-            const btn = document.createElement('button');
-            btn.classList.add('option');
-            btn.textContent = option;
-            btn.dataset.questionId = q.id.toString();
-            btn.dataset.optionValue = option;
-            btn.onclick = () => selectOption(q.id, option, btn);
-            optionsDiv.appendChild(btn);
-        });
-        
-        qDiv.appendChild(qText);
-        qDiv.appendChild(optionsDiv);
-        questionsList.appendChild(qDiv);
-    });
-}
-
-function selectOption(questionId: number, value: string, element: HTMLButtonElement) {
-    userAnswers[questionId] = value;
-    const options = document.querySelectorAll(`[data-question-id="${questionId}"]`);
-    options.forEach(opt => opt.classList.remove('selected'));
-    element.classList.add('selected');
-}
-
-function startTimer() {
-    updateTimerDisplay();
-    timerInterval = setInterval(() => {
-        timeLeft--;
-        updateTimerDisplay();
-        if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            alert('Czas minął!');
-            submitQuiz();
-        }
-    }, 1000);
-}
-
-function updateTimerDisplay() {
-    const minutes = Math.floor(timeLeft / 60);
-    const seconds = timeLeft % 60;
-    timerDisplay.textContent = `Pozostały czas: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-}
-
-async function submitQuiz() {
-    clearInterval(timerInterval);
-    const unanswered = questions.filter(q => !userAnswers[q.id]);
-    if (unanswered.length > 0 && timeLeft > 0) {
-        if (!confirm(`Masz ${unanswered.length} nieodpowiedzialnych pytań. Czy na pewno chcesz wysłać quiz?`)) {
-            startTimer();
+    // Handle login
+    const handleLogin = async () => {
+        const username = usernameInput.value.trim();
+        if (!username) {
+            loginError.textContent = 'Proszę podać nazwę użytkownika.';
             return;
         }
-    }
 
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Wysyłanie...';
+        loginBtn.disabled = true;
+        loginError.textContent = '';
 
-    try {
-        const response = await fetch('/api/submit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ answers: userAnswers })
-        });
-        
-        const result: SubmitResponse = await response.json();
-        displayResults(result);
-    } catch (error) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Wyślij Quiz';
-        alert('Wystąpił błąd podczas wysyłania quizu.');
-        console.error('Error submitting quiz:', error);
-    }
-}
+        try {
+            updateEndpointDisplay('POST', '/api/login');
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username })
+            });
 
-function displayResults(result: SubmitResponse) {
-    quizContainer.style.display = 'none';
-    resultsContainer.style.display = 'block';
-    
-    scoreDisplay.textContent = `Twój wynik to ${result.score} z ${result.total}`;
-    
-    const elapsedSeconds = INITIAL_TIME - timeLeft;
-    const minutes = Math.floor(elapsedSeconds / 60);
-    const seconds = elapsedSeconds % 60;
-    timeTakenDisplay.textContent = `Czas ukończenia: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            const data = await res.json();
 
-    breakdownDiv.innerHTML = '';
-    result.breakdown.forEach(item => {
-        const itemDiv = document.createElement('div');
-        itemDiv.classList.add('result-item');
-        const statusClass = item.isCorrect ? 'correct' : 'incorrect';
-        const statusText = item.isCorrect ? 'Poprawnie' : 'Błędnie';
-        
-        itemDiv.innerHTML = `
-            <div class="status ${statusClass}">${statusText}</div>
-            <div class="result-question-text">${item.text}</div>
-            <div class="result-answer-info">Twoja odpowiedź: <span class="${statusClass}">${item.userAnswer || 'Brak odpowiedzi'}</span></div>
-            ${!item.isCorrect ? `<div class="result-answer-info">Poprawna odpowiedź: <span class="correct">${item.correctAnswer}</span></div>` : ''}
-        `;
-        breakdownDiv.appendChild(itemDiv);
+            if (!res.ok) {
+                throw new Error(data.error || 'Błąd logowania');
+            }
+
+            // Save token
+            authToken = data.token;
+            localStorage.setItem('chat_token', data.token);
+            currentUsername = data.username;
+            
+            showChat();
+        } catch (err: any) {
+            loginError.textContent = err.message;
+        } finally {
+            loginBtn.disabled = false;
+        }
+    };
+
+    loginBtn.addEventListener('click', handleLogin);
+    usernameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleLogin();
     });
-}
 
-submitBtn.onclick = submitQuiz;
-initQuiz();
+    // Handle logout
+    logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('chat_token');
+        authToken = null;
+        if (socket) {
+            socket.disconnect();
+            socket = null;
+        }
+        showLogin();
+    });
+
+    // Show chat and fetch messages
+    const showChat = async () => {
+        loginContainer.style.display = 'none';
+        chatContainer.style.display = 'flex';
+        chatContainer.style.flexDirection = 'column'; // for mobile flex fixes
+        
+        currentUserDisplay.textContent = `Zalogowany jako: ${currentUsername}`;
+        messagesList.innerHTML = ''; // clear list
+
+        await fetchMessages();
+        connectSocket();
+    };
+
+    // Show login
+    const showLogin = () => {
+        loginContainer.style.display = 'block';
+        chatContainer.style.display = 'none';
+        usernameInput.value = '';
+    };
+
+    // Fetch message history
+    const fetchMessages = async () => {
+        if (!authToken) return;
+
+        try {
+            updateEndpointDisplay('GET', '/api/messages');
+            const res = await fetch('/api/messages', {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+
+            if (!res.ok) {
+                if (res.status === 401 || res.status === 403) {
+                    throw new Error('Sesja wygasła');
+                }
+                throw new Error('Błąd pobierania wiadomości');
+            }
+
+            const messages: ChatMessage[] = await res.json();
+            messages.forEach(renderMessage);
+            scrollToBottom();
+        } catch (err: any) {
+            console.error(err);
+            alert(err.message);
+            logoutBtn.click(); // Auto logout on auth error
+        }
+    };
+
+    // Connect to Socket.IO
+    const connectSocket = () => {
+        if (socket) return;
+
+        // Initialize Socket.IO client from default object built into HTML
+        socket = io();
+
+        socket.on('connect', () => {
+            console.log('Connected to Socket.IO');
+        });
+
+        socket.on('chat message', (msg: ChatMessage) => {
+            renderMessage(msg);
+            scrollToBottom();
+        });
+
+        socket.on('auth error', (data: any) => {
+            console.error('Socket.IO Auth Error:', data.error);
+        });
+    };
+
+    // Send new message
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const text = messageInput.value.trim();
+        if (!text || !authToken) return;
+
+        messageInput.disabled = true;
+
+        try {
+            updateEndpointDisplay('POST', '/api/messages');
+            const res = await fetch('/api/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({ text })
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Błąd wysyłania');
+            }
+
+            messageInput.value = '';
+            // Message will come back through Socket.IO 'chat message' event
+        } catch (err: any) {
+            console.error(err);
+            alert('Nie udało się wysłać wiadomości: ' + err.message);
+        } finally {
+            messageInput.disabled = false;
+            messageInput.focus();
+        }
+    });
+
+    // Render message in UI
+    const renderMessage = (msg: ChatMessage) => {
+        // Protection against double rendering
+        if (document.getElementById(`msg-${msg.id}`)) return;
+
+        const msgDiv = document.createElement('div');
+        msgDiv.id = `msg-${msg.id}`;
+        
+        const isOwnMessage = msg.username === currentUsername;
+        msgDiv.className = `message ${isOwnMessage ? 'message-own' : 'message-other'}`;
+
+        const timeString = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        msgDiv.innerHTML = `
+            <div class="message-header">${msg.username} • ${timeString}</div>
+            <div class="message-bubble">${escapeHTML(msg.text)}</div>
+        `;
+
+        messagesList.appendChild(msgDiv);
+    };
+
+    const scrollToBottom = () => {
+        messagesList.scrollTop = messagesList.scrollHeight;
+    };
+
+    // Simple function to escape HTML characters (XSS protection)
+    const escapeHTML = (str: string) => {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    };
+
+    // State initialization
+    if (authToken) {
+        localStorage.removeItem('chat_token');
+        authToken = null;
+    }
+    
+    showLogin();
+});

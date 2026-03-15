@@ -1,100 +1,204 @@
 import express from 'express';
-import type { Request, Response } from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import jwt from 'jsonwebtoken';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const server = http.createServer(app);
+const io = new Server(server);
 
+const PORT = process.env.PORT || 3000;
+const SECRET_KEY = 'super-secret-key-do-not-use-in-prod';
+const MESSAGES_FILE = path.join(__dirname, 'messages.json');
+
+// Interface for user in token
+interface JwtPayload {
+    username: string;
+    ip: string;
+    userAgent: string;
+}
+
+// Extend Request with user object
+declare global {
+    namespace Express {
+        interface Request {
+            user?: JwtPayload;
+        }
+    }
+}
+
+// Message interface
+interface ChatMessage {
+    id: string;
+    username: string;
+    text: string;
+    timestamp: string;
+}
+
+// Load messages from JSON file on server start
+let messages: ChatMessage[] = [];
+if (fs.existsSync(MESSAGES_FILE)) {
+    try {
+        const data = fs.readFileSync(MESSAGES_FILE, 'utf-8');
+        messages = JSON.parse(data);
+    } catch (err) {
+        console.error('Error loading messages.json', err);
+    }
+}
+
+// Function to save messages to JSON file
+function saveMessages() {
+    fs.writeFile(MESSAGES_FILE, JSON.stringify(messages, null, 2), (err) => {
+        if (err) console.error('Error saving to messages.json', err);
+    });
+}
+
+// --- Middlewares ---
+
+// 1. Logger
+app.use((req: Request, res: Response, next: NextFunction) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
+// Parse JSON
 app.use(express.json());
+// Serve static files
 app.use(express.static(__dirname));
 
-interface Question {
-  id: number;
-  text: string;
-  options: string[];
-  answer: string;
-}
+// 2. Auth Middleware
+const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Brak tokenu lub nieprawidłowy format' });
+        return;
+    }
 
-const questions: Question[] = [
-  { id: 1, text: "Co jest stolicą Francji?", options: ["Paryż", "Londyn", "Berlin", "Madryt"], answer: "Paryż" },
-  { id: 2, text: "Która planeta jest znana jako Czerwona Planeta?", options: ["Mars", "Wenus", "Jowisz", "Saturn"], answer: "Mars" },
-  { id: 3, text: "Kto napisał 'Romeo i Julię'?", options: ["Szekspir", "Dickens", "Austen", "Tolkien"], answer: "Szekspir" },
-  { id: 4, text: "Jaki jest największy ocean na Ziemi?", options: ["Spokojny", "Atlantycki", "Indyjski", "Arktyczny"], answer: "Spokojny" },
-  { id: 5, text: "Jaki jest symbol złota?", options: ["Au", "Ag", "Fe", "Pb"], answer: "Au" },
-  { id: 6, text: "Która góra jest najwyższa na świecie?", options: ["K2", "Mount Everest", "Mount Kilimandżaro", "Denali"], answer: "Mount Everest" },
-  { id: 7, text: "Ile nóg ma pająk?", options: ["6", "8", "10", "12"], answer: "8" },
-  { id: 8, text: "Jaki jest największy ssak na świecie?", options: ["Słoń", "Płetwal błękitny", "Żyrafa", "Żarłacz biały"], answer: "Płetwal błękitny" },
-  { id: 9, text: "W którym roku zatonął Titanic?", options: ["1905", "1912", "1918", "1923"], answer: "1912" },
-  { id: 10, text: "Który kraj jest znany jako Kraj Kwitnącej Wiśni?", options: ["Chiny", "Korea Południowa", "Japonia", "Tajlandia"], answer: "Japonia" },
-  { id: 11, text: "Jaki pierwiastek chemiczny ma symbol O?", options: ["Wodór", "Tlen", "Węgiel", "Azot"], answer: "Tlen" },
-  { id: 12, text: "Kto namalował Monę Lisę?", options: ["Van Gogh", "Picasso", "Da Vinci", "Rembrandt"], answer: "Da Vinci" },
-  { id: 13, text: "Która rzeka jest najdłuższa na świecie?", options: ["Nil", "Amazonka", "Jangcy", "Missisipi"], answer: "Nil" },
-  { id: 14, text: "W którym roku wybuchła II Wojna Światowa?", options: ["1914", "1939", "1945", "1918"], answer: "1939" },
-  { id: 15, text: "Jaka waluta obowiązuje w Japonii?", options: ["Juan", "Won", "Jen", "Dolar"], answer: "Jen" },
-  { id: 16, text: "Ile kontynentów jest na Ziemi?", options: ["5", "6", "7", "8"], answer: "7" },
-  { id: 17, text: "Kto odkrył Amerykę w 1492 roku?", options: ["Magellan", "Vasco da Gama", "Kolumb", "Cook"], answer: "Kolumb" },
-  { id: 18, text: "Który gaz dominuje w atmosferze Ziemi?", options: ["Tlen", "Azot", "Dwutlenek węgla", "Hel"], answer: "Azot" },
-  { id: 19, text: "Jak nazywa się najmniejszy kontynent?", options: ["Antarktyda", "Europa", "Australia", "Ameryka Południowa"], answer: "Australia" },
-  { id: 20, text: "Kto był pierwszym królem Polski?", options: ["Mieszko I", "Bolesław Chrobry", "Kazimierz Wielki", "Władysław Łokietek"], answer: "Bolesław Chrobry" },
-  { id: 21, text: "Jakie jest najgłębsze jezioro na świecie?", options: ["Huron", "Wiktoria", "Bajkał", "Michigan"], answer: "Bajkał" },
-  { id: 22, text: "Kto wymyślił teorię względności?", options: ["Newton", "Einstein", "Tesla", "Hawking"], answer: "Einstein" },
-  { id: 23, text: "Które miasto nazywane jest Wiecznym Miastem?", options: ["Paryż", "Ateny", "Rzym", "Londyn"], answer: "Rzym" },
-  { id: 24, text: "Jaki jest najtwardszy minerał występujący naturalnie?", options: ["Grafit", "Kwarc", "Diament", "Rubin"], answer: "Diament" },
-  { id: 25, text: "Ile planet jest w Układzie Słonecznym?", options: ["7", "8", "9", "10"], answer: "8" },
-  { id: 26, text: "Kto napisał 'Pana Tadeusza'?", options: ["Słowacki", "Mickiewicz", "Norwid", "Prus"], answer: "Mickiewicz" },
-  { id: 27, text: "Który kraj ma obecnie najwięcej ludności?", options: ["Chiny", "USA", "Indie", "Rosja"], answer: "Indie" },
-  { id: 28, text: "Jakie zwierzę jest symbolem Australii?", options: ["Koala", "Emu", "Kangur", "Dziobak"], answer: "Kangur" },
-  { id: 29, text: "Ile serc ma ośmiornica?", options: ["1", "2", "3", "4"], answer: "3" },
-  { id: 30, text: "Jaki kolor powstaje z połączenia niebieskiego i żółtego?", options: ["Fioletowy", "Zielony", "Pomarańczowy", "Brązowy"], answer: "Zielony" }
-];
+    const token = authHeader.split(' ')[1];
+    if (!token) {
+        res.status(401).json({ error: 'Brak tokenu' });
+        return;
+    }
 
-function shuffle<T>(array: T[]): T[] {
-  return array.sort(() => Math.random() - 0.5);
-}
+    try {
+        const decoded = jwt.verify(token, SECRET_KEY) as JwtPayload;
+        
+        // Fingerprinting verification
+        const currentIp = req.ip || req.socket.remoteAddress || 'unknown';
+        const currentUserAgent = req.headers['user-agent'] || 'unknown';
 
-app.get('/api/questions', (req: Request, res: Response) => {
-  const randomQuestions = shuffle([...questions]).slice(0, 5);
-  const clientQuestions = randomQuestions.map(({ id, text, options }) => ({ id, text, options }));
-  res.json(clientQuestions);
-});
+        if (decoded.ip !== currentIp || decoded.userAgent !== currentUserAgent) {
+            console.warn(`Attempt to use token from different environment (Username: ${decoded.username})`);
+            res.status(403).json({ error: 'Sesja wygasła - naruszenie bezpieczeństwa' });
+            return;
+        }
 
-app.post('/api/submit', (req: Request, res: Response) => {
-  const userAnswers: Record<number, string> = req.body.answers || {};
-  const answeredIds = Object.keys(userAnswers).map(Number);
-  const relevantQuestions = questions.filter(q => answeredIds.includes(q.id));
+        req.user = decoded;
+        next();
+    } catch (err) {
+        res.status(401).json({ error: 'Nieprawidłowy lub wygasły token' });
+        return;
+    }
+};
 
-  let score = 0;
-  const breakdown = relevantQuestions.map(q => {
-    const userAnswer = userAnswers[q.id];
-    const isCorrect = userAnswer === q.answer;
-    if (isCorrect) score++;
+// --- REST API Endpoints ---
+
+// POST /login
+app.post('/api/login', (req: Request, res: Response): void => {
+    const { username } = req.body;
     
-    return {
-      id: q.id,
-      text: q.text,
-      userAnswer,
-      correctAnswer: q.answer,
-      isCorrect
+    if (!username || typeof username !== 'string' || username.trim() === '') {
+        res.status(400).json({ error: 'Podaj poprawną nazwę użytkownika' });
+        return;
+    }
+
+    // Add fingerprinting elements to token
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    const payload: JwtPayload = { username: username.trim(), ip, userAgent };
+    const token = jwt.sign(payload, SECRET_KEY, { expiresIn: '2h' });
+
+    res.json({ token, username: payload.username });
+});
+
+// GET /messages (protected)
+app.get('/api/messages', authMiddleware, (req: Request, res: Response) => {
+    res.json(messages);
+});
+
+// POST /messages (protected)
+app.post('/api/messages', authMiddleware, (req: Request, res: Response): void => {
+    const { text } = req.body;
+    
+    if (!text || typeof text !== 'string' || text.trim() === '') {
+        res.status(400).json({ error: 'Wiadomość nie może być pusta' });
+        return;
+    }
+
+    const username = req.user?.username || 'Unknown';
+    
+    const newMessage: ChatMessage = {
+        id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+        username,
+        text: text.trim(),
+        timestamp: new Date().toISOString()
     };
-  });
 
-  res.json({
-    score,
-    total: relevantQuestions.length,
-    breakdown
-  });
+    messages.push(newMessage);
+    saveMessages();
+    
+    // Broadcast message after REST API Call
+    io.emit('chat message', newMessage);
+
+    res.status(201).json(newMessage);
 });
 
+// Fallback to index.html
 app.get('/', (req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`Serwer działa na http://localhost:${PORT}`);
+// --- Socket.IO ---
+io.on('connection', (socket) => {
+    console.log('New user connected via Socket.IO:', socket.id);
+
+    socket.on('send message', (data: { token: string, text: string }) => {
+        try {
+            const decoded = jwt.verify(data.token, SECRET_KEY) as JwtPayload;
+            
+            const newMessage: ChatMessage = {
+                id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+                username: decoded.username,
+                text: data.text.trim(),
+                timestamp: new Date().toISOString()
+            };
+
+            messages.push(newMessage);
+            saveMessages();
+            
+            io.emit('chat message', newMessage);
+        } catch (err) {
+            console.error('Socket.IO token auth error:', err);
+            socket.emit('auth error', { error: 'Nieprawidłowy token dla wiadomości Socket.IO' });
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
+});
+
+// --- Start server ---
+server.listen(PORT, () => {
+    console.log(`Chat server running on http://localhost:${PORT}`);
 });
 
 export default app;

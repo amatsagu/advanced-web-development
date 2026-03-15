@@ -3,28 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamiczny Quiz SPA</title>
+    <title>Czat Czasu Rzeczywistego</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Load Socket.IO client from server -->
+    <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
     <div class="container">
-        <div class="card" id="quiz-container">
-            <h1>Dynamiczny Quiz</h1>
-            <div id="timer">Pozostały czas: 02:00</div>
-            <div id="questions-list">
-                Ładowanie pytań...
+        <!-- Login Panel -->
+        <div class="card" id="login-container">
+            <h1>Logowanie do Czatu</h1>
+            <div class="form-group">
+                <label for="username">Nazwa użytkownika</label>
+                <input type="text" id="username" placeholder="Wpisz swój nick..." class="input-field" autocomplete="off">
             </div>
-            <button id="submit-btn" class="btn btn-mt">Wyślij Quiz</button>
+            <button id="login-btn" class="btn btn-mt">Zaloguj się</button>
+            <div id="login-error" class="error-message"></div>
         </div>
 
-        <div class="card" id="results">
-            <h1>Wyniki Quizu</h1>
-            <h2 id="score-display" class="score-display"></h2>
-            <p id="time-taken-display" class="time-taken-display"></p>
-            <div id="breakdown"></div>
-            <button onclick="location.reload()" class="btn btn-mt">Spróbuj ponownie</button>
+        <!-- Chat Panel -->
+        <div class="card" id="chat-container" style="display: none;">
+            <div class="chat-header">
+                <h1>Czat Czasu Rzeczywistego</h1>
+                <span id="current-user-display" class="user-display"></span>
+            </div>
+            
+            <div id="endpoint-display" class="endpoint-info">
+                Ostatnie żądanie: Brak
+            </div>
+
+            <div id="messages-list" class="messages-container">
+                <!-- Messages will be rendered here -->
+            </div>
+
+            <form id="chat-form" class="chat-input-area">
+                <input type="text" id="message-input" placeholder="Wpisz wiadomość..." class="input-field" autocomplete="off" required>
+                <button type="submit" class="btn">Wyślij</button>
+            </form>
+            <button id="logout-btn" class="btn btn-secondary btn-mt">Wyloguj</button>
         </div>
     </div>
+    
     <script type="module" src="script.js"></script>
 </body>
 </html>
