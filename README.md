@@ -26,6 +26,13 @@ Prosta aplikacja webowa realizująca czat (SPA) oparty na Node.js, Express, REST
 - **JWT (`jsonwebtoken`):** do tworzenia tokenów sesji oraz implementacji "fingerprintingu".
 - **Frontend:** Vanilla JS (`HTML`, `CSS`, `TS` z `fetch` API i klientem Socket.IO). Czyste CSS, korzystające ze zmiennych do obsługi kolorów i responsywności (podobnie jak w zadaniu z quizem).
 
+## Jak uruchomić
+```bash
+npm install
+npm run dev
+```
+> Otwórz `localhost:3000` w przeglądarce aby zobaczyć interfejs aplikacji.
+
 ## Zdjęcia dzałającej aplikacji
 ![Przykładowe logowanie](./.github/1.png) 
 ![Przykładowe okno chatu](./.github/2.png) 
@@ -42,3 +49,13 @@ Prosta aplikacja webowa realizująca czat (SPA) oparty na Node.js, Express, REST
   }
 ]
 ```
+
+Check repository branches to see specific lessons.
+All (per lesson) source files were written/tested using:
+> Operating System: CachyOS Linux (Wayland session) <br>
+> Kernel Version: 6.19.3-2-cachyos (64-bit) <br>
+> Processor: 16 × AMD Ryzen 7 PRO 5850U with Radeon Graphics <br>
+> Memory: 24 GiB of RAM
+>
+> NodeJS 25.6.1 <br>
+> NPM 11.10.1
