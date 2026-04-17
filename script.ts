@@ -208,17 +208,22 @@ addTaskForm.addEventListener('submit', async (e) => {
     fetchAndCacheTasks();
 });
 
+// Sync unsynced tasks
 syncBtn.addEventListener('click', async () => {
     const tasks = await getAllLocalTasks();
     const unsynced = tasks.filter(t => !t.synced);
-    
+
     syncBtn.disabled = true;
     syncBtn.innerText = 'Synchronizuję...';
 
     for (const task of unsynced) {
         try {
-            await fetch('/api/tasks', {
-                method: 'POST',
+            const isUpdate = task.localId?.startsWith('remote-');
+            const url = isUpdate ? `/api/tasks/${task.id}` : '/api/tasks';
+            const method = isUpdate ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     title: task.title, 
@@ -226,6 +231,12 @@ syncBtn.addEventListener('click', async () => {
                     status: task.status 
                 })
             });
+
+            if (response.ok) {
+                // Remove local unsynced copy after successful sync
+                // fetchAndCacheTasks will later pull the official version from DB
+                await removeLocalTask(task.localId!);
+            }
         } catch (error) {
             console.error('Failed to sync task', task, error);
         }
