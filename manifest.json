@@ -1,0 +1,11 @@
+{
+  "name": "Canva Board PWA",
+  "short_name": "CanvaBoard",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "description": "A simple Kanban board application with offline support.",
+  "icons": [
+  ]
+}

@@ -3,47 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Czat Czasu Rzeczywistego</title>
+    <title>Canva Board - Tablica Kanban</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Load Socket.IO client from server -->
-    <script src="/socket.io/socket.io.js"></script>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
 </head>
 <body>
-    <div class="container">
-        <!-- Login Panel -->
-        <div class="card" id="login-container">
-            <h1>Logowanie do Czatu</h1>
-            <div class="form-group">
-                <label for="username">Nazwa użytkownika</label>
-                <input type="text" id="username" placeholder="Wpisz swój nick..." class="input-field" autocomplete="off">
+    <div class="app-container">
+        <header>
+            <h1>Canva Board</h1>
+            <div class="status-bar">
+                <span id="network-status" class="status-indicator online">Online</span>
+                <button id="sync-btn" class="btn btn-small" style="display: none;">Synchronizuj</button>
             </div>
-            <button id="login-btn" class="btn btn-mt">Zaloguj się</button>
-            <div id="login-error" class="error-message"></div>
-        </div>
+        </header>
 
-        <!-- Chat Panel -->
-        <div class="card" id="chat-container" style="display: none;">
-            <div class="chat-header">
-                <h1>Czat Czasu Rzeczywistego</h1>
-                <span id="current-user-display" class="user-display"></span>
+        <section class="add-task-container">
+            <div class="card">
+                <h2>Dodaj nowe zadanie</h2>
+                <form id="add-task-form">
+                    <div class="form-group">
+                        <label for="task-title">Tytuł</label>
+                        <input type="text" id="task-title" class="input-field" placeholder="Tytuł zadania..." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="task-desc">Opis</label>
+                        <textarea id="task-desc" class="input-field" placeholder="Opis zadania..."></textarea>
+                    </div>
+                    <button type="submit" class="btn">Dodaj zadanie</button>
+                </form>
             </div>
-            
-            <div id="endpoint-display" class="endpoint-info">
-                Ostatnie żądanie: Brak
-            </div>
+        </section>
 
-            <div id="messages-list" class="messages-container">
-                <!-- Messages will be rendered here -->
+        <main class="board">
+            <div class="column" id="todo-column">
+                <h3>Do zrobienia</h3>
+                <div class="task-list" id="todo-list"></div>
             </div>
-
-            <form id="chat-form" class="chat-input-area">
-                <input type="text" id="message-input" placeholder="Wpisz wiadomość..." class="input-field" autocomplete="off" required>
-                <button type="submit" class="btn">Wyślij</button>
-            </form>
-            <button id="logout-btn" class="btn btn-secondary btn-mt">Wyloguj</button>
-        </div>
+            <div class="column" id="in-progress-column">
+                <h3>W trakcie</h3>
+                <div class="task-list" id="in-progress-list"></div>
+            </div>
+            <div class="column" id="done-column">
+                <h3>Zrobione</h3>
+                <div class="task-list" id="done-list"></div>
+            </div>
+        </main>
     </div>
-    
+
     <script type="module" src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW Registered'))
+                    .catch(err => console.log('SW Registration failed', err));
+            });
+        }
+    </script>
 </body>
 </html>

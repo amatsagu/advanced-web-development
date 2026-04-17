@@ -1,3 +1,4 @@
 script.js
+sw.js
 node_modules
-messages.json
+tasks.db
